@@ -4,6 +4,27 @@
   
     
     <entry>
+      <title>防抖算法：SG-filter与卡尔曼滤波</title>
+      <link href="/2022/06/28/%E9%98%B2%E6%8A%96%E7%AE%97%E6%B3%95%EF%BC%9ASG-filter%E4%B8%8E%E5%8D%A1%E5%B0%94%E6%9B%BC%E6%BB%A4%E6%B3%A2/"/>
+      <url>/2022/06/28/%E9%98%B2%E6%8A%96%E7%AE%97%E6%B3%95%EF%BC%9ASG-filter%E4%B8%8E%E5%8D%A1%E5%B0%94%E6%9B%BC%E6%BB%A4%E6%B3%A2/</url>
+      
+        <content type="html"><![CDATA[<p>之前用SG filter做肢体驱动的防抖，效果还不错，但延时问题非常让人头疼。最近同事将SG filter换成了防抖效果非常牛逼的卡尔曼滤波，完美解决了延时的问题，学习一下。</p><h2 id="SG-Filter平滑滤波"><a href="#SG-Filter平滑滤波" class="headerlink" title="SG Filter平滑滤波"></a>SG Filter平滑滤波</h2><p>SG Filter（Savitzky Golay Filter）滤波器是一种特殊的<strong>低通滤波器</strong>，与常见的基于频域特性的滤波器不同，<strong>SG Filter是一种是一种移动窗口的加权平均算法</strong>，通过滑动窗口，利用最小二乘法直接在时域内进行<strong>多项式最佳拟合</strong>，加权系数通过在滑动窗口内对给定高阶多项式的最小二乘拟合得出 。该方法不需要进行时频转换，数据处理简单快速，非常适合工程实现中对硬件性能的低门槛和实时性有要求的领域。</p><h3 id="SG-Filter算法推导"><a href="#SG-Filter算法推导" class="headerlink" title="SG Filter算法推导"></a>SG Filter算法推导</h3><p>时域数据集$ x(i), i = -m, -(m-1), \cdot \cdot \cdot,(m-1),m$，构建一个$n(n)\leq2m+1$&gt;阶多项式对这组数据进行拟合，则有：</p><script type="math/tex; mode=display">f_i=\sum_{k=0}^{n}b_{nk}l^k=b_{n0}+b_{n1}i+b_{n2}i^2+\cdot \cdot \cdot+b_{nn}i^n</script><p>为得到最佳的拟合曲线，需要满足均方误差函数和最小，即：</p><script type="math/tex; mode=display">E=\sum_{i=-m}^{m}[f_i-x(i)]^2=\sum_{i=-m}^{m}[\sum_{k=0}^{n}b_{nk}l^k-x(i)]^2,  \quad \frac{\partial E}{\partial b_{nr}}=0,r=0,1,2,\cdot \cdot \cdot,n</script><p><a href="https://xueshu.baidu.com/usercenter/paper/show?paperid=4fccdf800a7e0ffe5f35f715dc7a9e17&amp;site=xueshu_se">分析可得</a>：$\pmb{d}^{n}f<em>i/\pmb{d}i^n=n!b</em>{nn}=a<em>{nn}$，在实际应用中往往不需要把$b</em>{n0},b<em>{n1},\cdot \cdot \cdot,b</em>{nn}$的数值全部求出，SG Filter使用了一种简单的多项式卷积的方法，并制定了卷积系数表来计算$\pmb{d}^{n}f<em>i/\pmb{d}i^n=n!b</em>{nn}=a_{nn}$的大小，方便快速。</p><p><strong>示例</strong>：用四次多项式$f<em>{i}=b</em>{n0}+b<em>{n1}i+b</em>{n2}i^2+b<em>{n3}i^3+b</em>{n4}i^4$拟合9个点，$y_{-3},\cdot \cdot \cdot,0,\cdot \cdot \cdot,y_3$通过查表可得计算式：</p><script type="math/tex; mode=display">a_{40}=(15y_{-4}-55y_{-3}+30y_{-2}+135y_{-1}+179y_{0}+135y_{1}+30y_{2}-55y_3+15y_4)/429</script><p>可以计算$a<em>{40}$的数值，又$!b</em>{ns}=a<em>{ns}$，可计算系数$b</em>{40}$的数值，同理可由系数$b<em>{nk}$对应的表格数据分别求得$b</em>{41},b<em>{42},b</em>{43},b_{44}$的大小，得到最优的拟合曲线。</p><h3 id="SG-Filter实现"><a href="#SG-Filter实现" class="headerlink" title="SG Filter实现"></a>SG Filter实现</h3><p>python中，Savitzky-Golay 滤波器 可以在 <code>scipy库</code>里直接调用。</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">y_smooth = savgol_filter(y, <span class="number">53</span>, <span class="number">3</span>, mode= <span class="string">&#x27;nearest&#x27;</span>)</span><br><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">:y: 代表曲线点坐标（x,y）中的y值数组</span></span><br><span class="line"><span class="string">:window_length：窗口长度，该值需为正奇整数。例如：此处取值53</span></span><br><span class="line"><span class="string">:k值：polyorder为对窗口内的数据点进行k阶多项式拟合，k的值需要小于window_length。例如：此处取值3</span></span><br><span class="line"><span class="string">:mode：确定了要应用滤波器的填充信号的扩展类型</span></span><br><span class="line"><span class="string">&quot;&quot;&quot;</span></span><br></pre></td></tr></table></figure><p><strong>window_length对曲线的平滑作用：</strong> window_length的值越小，曲线越贴近真实曲线；window_length值越大，平滑效果越厉害（备注： 该值必须为正奇整数 ）。</p><p><strong>k值对曲线的平滑作用：</strong> k值越大，曲线越贴近真实曲线；k值越小，曲线平滑越厉害。另外，当k值较大时，受窗口长度限制，拟合会出现问题，高频曲线会变成直线。</p><p>C++实现参考代码：<a href="https://github.com/wangchao1013/openwork/tree/master/sg_filter">https://github.com/wangchao1013/openwork/tree/master/sg_filter</a></p><h2 id="卡尔曼滤波器"><a href="#卡尔曼滤波器" class="headerlink" title="卡尔曼滤波器"></a>卡尔曼滤波器</h2>]]></content>
+      
+      
+      
+        <tags>
+            
+            <tag> 算法 </tag>
+            
+            <tag> 肢体驱动 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>汉溪村的日与夜</title>
       <link href="/2022/06/27/%E6%B1%89%E6%BA%AA%E6%9D%91%E7%9A%84%E6%97%A5%E4%B8%8E%E5%A4%9C/"/>
       <url>/2022/06/27/%E6%B1%89%E6%BA%AA%E6%9D%91%E7%9A%84%E6%97%A5%E4%B8%8E%E5%A4%9C/</url>
