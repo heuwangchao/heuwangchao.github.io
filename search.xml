@@ -8,9 +8,15 @@
       <link href="/2022/06/30/NEON-OpenCL%E4%BC%98%E5%8C%96-%E7%81%B0%E5%BA%A6%E7%9B%B4%E6%96%B9%E5%9B%BE%E7%BB%9F%E8%AE%A1/"/>
       <url>/2022/06/30/NEON-OpenCL%E4%BC%98%E5%8C%96-%E7%81%B0%E5%BA%A6%E7%9B%B4%E6%96%B9%E5%9B%BE%E7%BB%9F%E8%AE%A1/</url>
       
-        <content type="html"><![CDATA[]]></content>
+        <content type="html"><![CDATA[<p>前段时间面试碰到了一个问题，用NEON实现灰度直方图统计，总结一下实现过程。</p><h2 id="什么是灰度直方图">什么是灰度直方图？</h2><p>灰度直方图（histogram）是图像灰度级的函数，<strong>描述的是图像中每种灰度级像素的个数，反映图像中每种灰度出现的频率</strong>。横坐标是灰度级，纵坐标是灰度级出现的频率。</p><p>灰度直方图的opencv实现非常简单，代码如下：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> cv2  </span><br><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"><span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt</span><br><span class="line"></span><br><span class="line">src = cv2.imread(<span class="string">&#x27;img\space\lena.jpg&#x27;</span>)</span><br><span class="line">plt.hist(src.ravel(), <span class="number">256</span>)</span><br><span class="line">plt.show()</span><br></pre></td></tr></table></figure><p>工程实现也比较简单，如图</p>]]></content>
       
       
+      
+        <tags>
+            
+            <tag> 优化 </tag>
+            
+        </tags>
       
     </entry>
     
