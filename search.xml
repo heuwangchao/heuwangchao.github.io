@@ -4,6 +4,27 @@
   
     
     <entry>
+      <title>Winograd算法原理与实现</title>
+      <link href="/2022/07/03/Winograd%E7%AE%97%E6%B3%95%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E7%8E%B0/"/>
+      <url>/2022/07/03/Winograd%E7%AE%97%E6%B3%95%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E7%8E%B0/</url>
+      
+        <content type="html"><![CDATA[<p>Winograd快速卷积算法，该算法出自CVPR 2016的一篇 <ahref="https://arxiv.org/abs/1509.09308">paper</a>，主流的推理框架MNN/NCNN/NNPACK都使用了Winograd卷积优化。</p><h2 id="定义">定义</h2><p>将<strong>一维卷积</strong>运算定义为$ F(m, r)$，其中$ m$为OutputSize，$r$为FilterSize，则输入信号的长度为$m+r+1$，卷积运算是对应位置相乘然后求和，<strong>输入信号每个位置至少要参与1次乘法</strong>，所以乘法数量最少与输入信号长度相同，记为：<span class="math display">\[\mu(F(m,r))=m+r-1\]</span> <strong>二维卷积</strong>记为$ F(m \times n, r\timess)$，输出为$m \times n$，卷积核为$r \times s$，则输入信号为$(m+r-1)(n+s-1)$，乘法数最少为： <span class="math display">\[\mu(F(m \times n,r \times s))=\mu(F(m,r))\mu(F(n,s))=(m+r-1)(n+s-1)\]</span> 若直接按滑动窗方式计算，一维时需$ m \times r$次乘法，二维需$m\times n \times r \timess$，远大于上面的最小乘法次数，Winograd<strong>主要通过减少乘法数量进行加速</strong>。</p><p><strong>注</strong>：在arm64中，fdiv是10+cycle，甚至几十cycle级别的，mul一般小于等于4-6之内，排好pipeline可以1cycle，而且乘法器也比除法器要多，乱序发射，可以并行执行，加法位移运算等通常只需要1cycle。</p><p><strong>例</strong>：对一维卷积$ F(2,3)$，假设输入信号为$ d=[d_{0},d_{1},d_{2},d_{3}]^{T}$，卷积核为$g=[g_{0},g_{1},g_{2}]^T$，则输出为$r=[r_{0},r_{1}]^T$，计算表达式如下：</p><span class="math display">\[\begin{gathered}F(2,3)=\begin{bmatrix}d_{0} &amp;d_{1} &amp; d_{2} \\d_{1} &amp;d_{2} &amp; d_{3}\end{bmatrix}\begin{bmatrix}g_{0}\\g_{1}\\g_{2}\end{bmatrix}=\begin{bmatrix}r_{0}\\r_{1}\end{bmatrix}\end{gathered}\]</span><p>如果直接进行常规矩阵乘，需要<strong>6次乘法和4次加法</strong>，如下：</p><span class="math display">\[r_{0}=(d_{0}\cdot g_{0})+(d_{1}\cdot g_{1})+(d_{2}\cdot g_{2}) \\r_{1}=(d_{1}\cdot g_{0})+(d_{2}\cdot g_{1})+(d_{3}\cdot g_{2})\]</span>卷积运算中输入信号矩阵<strong>有规律分布着大量重复元素</strong>，比如第1行和第2行的$d_{1}$和$d_{2}$，卷积相比于矩阵乘可以减少很多不必要的计算：<span class="math display">\[\begin{gathered}F(2,3)=\begin{bmatrix}d_{0} &amp;d_{1} &amp; d_{2} \\d_{1} &amp;d_{2} &amp; d_{3}\end{bmatrix}\begin{bmatrix}g_{0}\\g_{1}\\g_{2}\end{bmatrix}=\begin{bmatrix}m_{1} +m_{2} + m_{3} \\m_{2} -m_{3} - m_{4}\end{bmatrix}\end{gathered}\]</span><p>其中： <span class="math display">\[m_{1}=(d_{0}-d_{2})g_{0},\quad m_{2}=(d_{1}+d_{2})\frac{g_{0}+g_{1}+g_{2}}{2}\\m_{4}=(d_{1}-d_{3})g_{2},\quad m_{3}=(d_{2}-d_{1})\frac{g_{0}-g_{1}+g_{2}}{2}\]</span> 在神经网络的推理中，卷积核$g=[g_{0},g_{0},g_{0}]^T$的元素是固定的，因此与$g$相关的运算可以提前算好，因此只需要计算一次，所以<strong>实际的计算为</strong>$d$与$m$<strong>上的运算次数之和，即：4次乘法，8次加法</strong>。</p><h2 id="一维winograd">一维Winograd</h2><p>一维Winograd计算过程可以表示为:$ Y=A^{T}[(Gg) \odot(B^Td)]A$，其中$\odot$为对应位置乘。</p><ul><li>$F(2,3)$<strong>中系数矩阵分别为：</strong></li></ul><p><img src="/images/6/p2.png"  style="zoom:50%;"/></p><ul><li>$F(4,3)$<strong>中系数矩阵分别为：</strong></li></ul><p><img src="/images/6/p3.png " style="zoom:50%;"/></p><ul><li>$F(4,3)$<strong>中系数矩阵分别为：</strong></li></ul><p><img src="/images/6/p4.png" style="zoom:70%;" /></p><p>其中，$g$为卷积核，$d$输入信号，$G$为尺寸$ (m+r-1)r$的Filtertransform矩阵，$B^T$为Input transform矩阵，尺寸$(m+r-1)(m+r-1)$，$A^T$为Output transform矩阵，尺寸$ m(m+r-1)$。</p><h2 id="二维winograd">二维Winograd</h2><p>二维矩阵的Winograd表示为：$Y= A^{T}[[G g G^{T} ]\odot[B^{T}d B]]A$，其中$g$为$ r \times r$的Filter，$d$为$(m+r-1) (m + r - 1)$的imagetile。</p><p>注：$F(2 \times 2,3 \times 3)$卷积计算中，Winograd乘法次数为16次，直接卷积为36次**，降低了2.25倍的乘法计算复杂度。</p><h2 id="卷积计算中winograd的总体流程">卷积计算中Winograd的总体流程</h2><p><ahref="https://www.researchgate.net/publication/328091476_Sparse_Winograd_Convolutional_neural_networks_on_small-scale_systolic_arrays">winograd算法实现流程</a>如下：</p><p><img src="/images/6/p1.png"  style="zoom:70%;"/></p><p><strong>注：</strong>图中的MatrixMultiplication，对应3维卷积中逐channel卷积后的对应位置求和，相当于$(m+r-1)^2$个矩阵乘积，参与乘积的矩阵尺寸分别为$\lceilH/m \rceil \lceil W/m \rceil \times C $和$C \timesK$，把Channel维消掉。</p><h2 id="winograd算法相关问题总结">Winograd算法相关问题总结</h2><p><strong>Q1：为什么Winograd算法可以对卷积进行加速？</strong></p><p>Winograd算法可以减少卷积计算中乘法次数，而计算密集型卷积中，乘法计算大量耗时，可以通过算法优化加速。$F(2 \times 2,3 \times 3)$中乘法次数由36下降到了16，降低了2.25倍。</p><p><strong>Q2：image tile的尺寸是不是越大越好？</strong></p><p>imagetile的尺寸越大，transform矩阵越大，计算精度的损失越大，所以Winograd一般只适合较小的卷积核和较小的tile，典型如：$F(2\times 2 ,3 \times 3) $，$ F(4 \times 4 ,3 \times 3) $ 和 $F(6 \times 6,3 \times 3)$，根据实际精度要求进行选取，大尺寸的卷积核通常采用FFT进行加速。</p>]]></content>
+      
+      
+      
+        <tags>
+            
+            <tag> 优化 </tag>
+            
+            <tag> 算法 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>BoxFilter算法原理与优化</title>
       <link href="/2022/06/30/BoxFilter%E7%AE%97%E6%B3%95%E5%8E%9F%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/"/>
       <url>/2022/06/30/BoxFilter%E7%AE%97%E6%B3%95%E5%8E%9F%E7%90%86%E4%B8%8E%E4%BC%98%E5%8C%96/</url>
