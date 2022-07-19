@@ -8,7 +8,7 @@
       <link href="/2022/07/19/%E3%80%8Aeffective%20modern%20C++%E3%80%8B%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/"/>
       <url>/2022/07/19/%E3%80%8Aeffective%20modern%20C++%E3%80%8B%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/</url>
       
-        <content type="html"><![CDATA[]]></content>
+        <content type="html"><![CDATA[<p>这是今年的第一篇读书笔记，之前拜读过Scott Meyers大佬的《EffectiveC++》和《More EffectiveC++》受益匪浅，这是该系列丛书的第三本经典著作，希望能通过学习对C++新特性有更深刻的认识。本博客每周更新1-2个章节，希望自己能坚持下去。</p><h2 id="术语和惯例">术语和惯例</h2><p>C++11最重要的特性是<strong><u>移动语义</u></strong>，而移动语义的基础在于区分<strong>左值</strong>和<strong>右值</strong>，只有<strong>右值</strong>可以使用移动语义。</p><p>如何判断表达式是否为左值？</p><p>答：检查表达式的地址，如果可以获取则为左值，不可以获取为右值。表达式是左值还是右值与型别T无关，任何形参都是左值，包括右值引用型别的形参。</p><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Widget</span>&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line"><span class="built_in">Widget</span>(Widget&amp;&amp; rhs); <span class="comment">// rhs是个左值，尽管有右值引用的型别</span></span><br><span class="line">    <span class="comment">// ···</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h2 id="型别推导">型别推导</h2><h3 id="条款1理解模板型别推到">条款1：理解模板型别推到</h3>]]></content>
       
       
       
